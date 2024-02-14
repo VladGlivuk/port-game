@@ -1,8 +1,8 @@
 import * as PIXI from 'pixi.js';
 import * as TWEEN from '@tweenjs/tween.js';
 import { Ship } from "../models/ship";
-import { GameConst, ShipType, PierConst, ShipConst } from "../constants/enums";
-import { IPort } from "../interfaces";
+import { GameConst, ShipType, PierConst, ShipConst } from "../enums";
+import { IPort } from "../types";
 import { Pier } from "../models/pier";
 
 export class Port implements IPort {
