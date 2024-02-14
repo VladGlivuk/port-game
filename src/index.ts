@@ -1,5 +1,4 @@
-import * as PIXI from 'pixi.js';
+import { Port } from "./views/portView";
 
-const app = new PIXI.Application({ width: 800, height: 600, });
-document.body.appendChild(app.view);
-
+export const port = new Port();
+port.startSimulation();
