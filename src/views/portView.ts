@@ -1,36 +1,44 @@
 import * as PIXI from 'pixi.js';
 import * as TWEEN from '@tweenjs/tween.js';
-import { Ship } from "../models/ship";
-import { GameConst, ShipType, PierConst, ShipConst } from "../enums";
-import { IPort } from "../types";
-import { Pier } from "../models/pier";
+import {Ship} from "../models/ship";
+import {GameConst, PierConst, ShipConst, ShipType} from "../enums";
+import {IPort} from "../types";
+import {Pier} from "../models/pier";
 
 export class Port implements IPort {
     game: PIXI.Application;
     ships: Ship[] = [];
     piers: Pier[] = [];
-    queueRed: Ship[] = [];
-    queueGreen: Ship[] = [];
+    queues: { [key in ShipType]: Ship[] } = {
+        [ShipType.Red]: [],
+        [ShipType.Green]: []
+    };
 
     constructor() {
-        this.game = new PIXI.Application({
-            width: GameConst.GAME_WIDTH,
-            height: GameConst.GAME_HEIGHT,
-            backgroundColor: GameConst.BACKGROUND_COLOR,
-        });
-
-        document.body.appendChild(this.game.view);
-
+        this.game = this.setupPixi();
         this.stylizeGame();
         this.generatePiers();
         this.generateDock();
         this.generateShipWithInterval();
     }
 
+    setupPixi(): PIXI.Application {
+        const app = new PIXI.Application({
+            width: GameConst.GAME_WIDTH,
+            height: GameConst.GAME_HEIGHT,
+            backgroundColor: GameConst.BACKGROUND_COLOR,
+        });
+
+        document.body.appendChild(app.view);
+        return app;
+    }
+
     stylizeGame(): void {
-        document.body.style.display = 'flex';
-        document.body.style.justifyContent = 'center';
-        document.body.style.backgroundColor = '#FFFFF0';
+        document.body.style.cssText = `
+            display: flex;
+            justify-content: center;
+            background-color: #FFFFF0;
+        `;
     }
 
     generatePiers(): void {
@@ -87,76 +95,57 @@ export class Port implements IPort {
 
     shipArrived(ship: Ship):void {
         if (ship.type === ShipType.Red) {
-            const targetPier = this.piers.find((p) => !p.occupied && !p.loading)
-            if (targetPier && this.queueRed.length === 0) {
-                targetPier.loading = true
-                this.moveToPier(targetPier, ship)
-            } else {
-                let nums = {
-                    x: 450,
-                    y: 230
-                }
-                if (this.queueRed.length) {
-                    nums.x = this.queueRed[this.queueRed.length - 1]?.sprite.position.x + 100
-                }
-                this.queueRed.push(ship)
-                new TWEEN.Tween(ship.sprite.position)
-                    .to(nums, 1000)
-                    .start()
-            }
+            const targetPier = this.piers.find((p) => !p.occupied && !p.loading);
+            this.moveShipsToQueue(ship, ShipType.Red, targetPier!);
+
         } else {
-            const targetPier = this.piers.find((p)=> p.occupied && !p.loading)
+            const targetPier = this.piers.find((p)=> p.occupied && !p.loading);
+            this.moveShipsToQueue(ship, ShipType.Green, targetPier!);
+        }
+    }
 
-            if (targetPier && this.queueGreen.length === 0) {
-                targetPier.loading = true
-                this.moveToPier(targetPier,ship)
+    moveShipsToQueue(ship: Ship, shipType: ShipType, targetPier: Pier) {
+        if (targetPier && this.queues[shipType].length === 0) {
+            targetPier.loading = true;
+            this.moveToPier(targetPier, ship);
+        } else {
+            let nums = {
+                x: 450,
+                y: 230
+            };
+            if (this.queues[shipType].length) {
+                nums.x = this.queues[shipType][this.queues[shipType].length - 1]?.sprite.position.x + 100;
             }
-            else {
-                let nums = {
-                    x: 450,
-                    y: 230
-                }
-                if (this.queueGreen.length) {
-                    nums.x = this.queueGreen[this.queueGreen.length -1]?.sprite.position.x + 100
-                }
-
-                this.queueGreen.push(ship)
-                new TWEEN.Tween(ship.sprite.position)
-                    .to(nums,1000)
-                    .start()
-            }
-        }
-    }
-
-    handlerQueueRed(pier:Pier):void {
-        if (this.queueRed.length) {
-            pier.loading = true
-            const ship = this.queueRed[0]
-            this.queueRed.shift()
+            this.queues[shipType].push(ship);
             new TWEEN.Tween(ship.sprite.position)
-                .to({x:350,y:300},1000)
-                .start()
-                .onComplete(()=>{
-                    this.moveToPier(pier,ship)
-                })
+                .to(nums, 1000)
+                .start();
         }
     }
 
-    handlerQueueGreen(pier:Pier):void {
-        if(this.queueGreen.length) {
-            pier.loading = true
-            const ship = this.queueGreen[0]
-            this.queueGreen.shift()
+
+    handlerQueue(queue: Array<Ship>, pier: Pier): void {
+        if (queue.length) {
+            pier.loading = true;
+            const ship = queue[0];
+            queue.shift();
             new TWEEN.Tween(ship.sprite.position)
-                .to({x:350,y:300},1000)
+                .to({ x: 350, y: 300 }, 1000)
                 .start()
-                .onComplete(()=>{
-                    this.moveToPier(pier,ship)
-                })
-
+                .onComplete(() => {
+                    this.moveToPier(pier, ship);
+                });
         }
-
     }
+
+    handlerQueueRed(pier: Pier): void {
+        this.handlerQueue(this.queues[ShipType.Red], pier);
+    }
+
+    handlerQueueGreen(pier: Pier): void {
+        this.handlerQueue(this.queues[ShipType.Green], pier);
+    }
+
 
 
     moveToPier(targetPier:Pier, ship:Ship): void{
